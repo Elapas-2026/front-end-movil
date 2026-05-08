@@ -66,9 +66,11 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
   // Mapear medidores leídos por ID para búsqueda rápida
   const medidoresLeidosMap = useMemo(() => {
     const map = new Map()
-    medidoresLeidos.forEach((m) => {
-      map.set(m.idMedidor, m)
-    })
+    if (medidoresLeidos) {
+      medidoresLeidos.forEach((m) => {
+        map.set(m.idMedidor, m)
+      })
+    }
     return map
   }, [medidoresLeidos])
 
@@ -98,11 +100,13 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
 
     // NUEVO: Agregar todos los medidores registrados con GPS
     const medidoresMap = new Map()
-    medidores.forEach((med: any) => {
-      if (med.gps && med.usuarioId) {
-        medidoresMap.set(med.id, med)
-      }
-    })
+    if (medidores) {
+      medidores.forEach((med: any) => {
+        if (med.gps && med.usuarioId) {
+          medidoresMap.set(med.id, med)
+        }
+      })
+    }
 
     // Obtener información de usuarios de las lecturas
     const usuariosMapa = new Map()

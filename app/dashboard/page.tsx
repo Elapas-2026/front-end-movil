@@ -159,6 +159,7 @@ export default function DashboardPage() {
               }}
             />
           </TabsContent>
+          
 
           <TabsContent value="historial" className="space-y-4">
             <ListaLecturas />

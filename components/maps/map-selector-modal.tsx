@@ -91,7 +91,7 @@ export function MapSelectorModal({
   }
 
   // Verificar si el medidor ya fue leído
-  const medidorYaLeido = medidorEnBusqueda ? medidoresLeidos.find((m) => m.idMedidor === medidorEnBusqueda.id.toString()) : null
+  const medidorYaLeido = medidorEnBusqueda && medidoresLeidos ? medidoresLeidos.find((m) => m.idMedidor === medidorEnBusqueda.id.toString()) : null
   const medidorActual = medidorEnBusqueda || medidorInfo
 
   if (!isOpen) return null
