@@ -1,7 +1,7 @@
 'use client'
 
 import { useStore } from '@/lib/store'
-import { Trash2, CheckCircle, Clock, MapPin } from 'lucide-react'
+import { Trash2, CheckCircle, Clock, MapPin, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function ListaLecturas() {
@@ -18,7 +18,7 @@ export function ListaLecturas() {
 
   // Ordenar por fecha más reciente primero
   const sortedLecturas = [...lecturas].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    (a, b) => new Date(b.fechaLectura).getTime() - new Date(a.fechaLectura).getTime()
   )
 
   return (
@@ -26,7 +26,7 @@ export function ListaLecturas() {
       {sortedLecturas.map((lectura) => {
         const isSynced = lectura.estado === 'sincronizada'
         const lecturaDiferencia = lectura.lecturaActual - lectura.lecturaAnterior
-        const fecha = new Date(lectura.fecha)
+        const fecha = new Date(lectura.fechaLectura)
         const fechaFormato = fecha.toLocaleDateString('es-ES')
         const horaFormato = fecha.toLocaleTimeString('es-ES', {
           hour: '2-digit',
@@ -95,6 +95,14 @@ export function ListaLecturas() {
                   <Clock size={12} />
                   <span>{fechaFormato} {horaFormato}</span>
                 </div>
+
+                {/* Técnico */}
+                {(lectura.tecnicoNombre || lectura.tecnicoId) && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <User size={12} />
+                    <span>{lectura.tecnicoNombre || `ID técnico ${lectura.tecnicoId}`}</span>
+                  </div>
+                )}
 
                 {/* GPS */}
                 {lectura.gps && (

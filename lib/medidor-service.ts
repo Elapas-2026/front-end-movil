@@ -114,6 +114,69 @@ export class MedidorServiceClass {
     const hoy = new Date()
     return hoy.toISOString().split('T')[0]
   }
+
+  /**
+   * Marca una lectura como verificada por el técnico
+   * @param lecturaId - ID de la lectura a marcar
+   * @param verificado - boolean indicando si marcar como verificada o no
+   * @param observacion - Observación opcional
+   */
+  async marcarLecturaVerificada(
+    lecturaId: number,
+    verificado: boolean,
+    observacion?: string
+  ): Promise<any> {
+    try {
+      console.log('[v0] Marcando lectura como verificada:', lecturaId)
+
+      const response = await fetch('/api/lecturas/marcar', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({
+          lecturaId,
+          verificado,
+          observacion,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error al marcar lectura: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('[v0] Lectura marcada exitosamente:', data)
+      return data
+    } catch (error) {
+      console.error('[v0] Error al marcar lectura:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Obtiene el icono de mano para mostrar en el mapa
+   * Retorna un ícono de Leaflet con forma de mano
+   */
+  getIconoMano() {
+    if (typeof window === 'undefined') return undefined
+    const L = require('leaflet')
+
+    return L.divIcon({
+      html: `<div style="
+        font-size: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      ">👆</div>`,
+      className: 'icono-mano',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16],
+    })
+  }
 }
 
 export const medidorService = new MedidorServiceClass()

@@ -47,10 +47,9 @@ export function LoginForm() {
         return
       }
 
-      console.log('[v0] Attempting login with API for CI:', ci)
+      console.log('[v0] Attempting login with CI:', ci)
 
       try {
-        // Intentar login con API real
         const response = await elapasApi.login(ci, password)
         console.log('[v0] API Login successful:', response.usuario.nombre)
 
@@ -74,13 +73,13 @@ export function LoginForm() {
           nombre: response.usuario.nombre,
           email: response.usuario.email,
           ci: response.usuario.ci,
-          categoria: response.usuario.categoria,
-          token: response.token,
+          categoria: response.usuario.categoria || userRole,
+          token: response.token || response.access_token,
         }
 
         setUsuario(usuario)
-        setToken(response.token)
-        authService.saveAuth(response.token, usuario)
+        setToken(usuario.token)
+        authService.saveAuth(usuario.token, usuario)
 
         router.push('/dashboard')
       } catch (apiError: any) {
@@ -106,7 +105,6 @@ export function LoginForm() {
         <Input
           id="ci"
           type="text"
-          placeholder="Ej: 10544403"
           value={ci}
           onChange={(e) => {
             setCi(e.target.value)
@@ -129,7 +127,6 @@ export function LoginForm() {
           <Input
             id="password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
             value={password}
             onChange={(e) => {
               setPassword(e.target.value)
@@ -161,7 +158,7 @@ export function LoginForm() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full bg-primary hover:bg-primary-dark text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2"
+        className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-2xl shadow-md shadow-primary/20 flex items-center justify-center gap-2 transition duration-200"
       >
         <LogIn size={18} />
         {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}

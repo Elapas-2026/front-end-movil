@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { elapasApi } from '@/lib/elapas-api'
 import { Header } from '@/components/layout/header'
 import { FormLectura } from '@/components/lecturas/form-lectura'
 import { ListaLecturas } from '@/components/lecturas/lista-lecturas'
 import { ExportLecturas } from '@/components/lecturas/export-lecturas'
+import { MapaLecturas } from '@/components/maps/mapa-lecturas'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Wifi, WifiOff, RefreshCw, AlertCircle } from 'lucide-react'
@@ -57,7 +59,7 @@ export default function DashboardPage() {
       const lecturasParaSincronizar = pendientes.map((l) => ({
         medidorId: l.idMedidor,
         valor: l.lecturaActual,
-        fecha: l.fecha,
+        fecha: l.fechaLectura,
         latitud: l.gps?.lat,
         longitud: l.gps?.lng,
         fotoEvidencia: l.foto,
@@ -145,11 +147,12 @@ export default function DashboardPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="nueva" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 bg-secondary">
+          <TabsList className="grid w-full grid-cols-3 bg-secondary">
             <TabsTrigger value="nueva">Nueva Lectura</TabsTrigger>
             <TabsTrigger value="historial">
               Historial {lecturas.length > 0 && <span className="ml-1">({lecturas.length})</span>}
             </TabsTrigger>
+            <TabsTrigger value="mapa">Mapa</TabsTrigger>
           </TabsList>
 
           <TabsContent value="nueva" className="space-y-4">
@@ -160,9 +163,12 @@ export default function DashboardPage() {
             />
           </TabsContent>
           
-
           <TabsContent value="historial" className="space-y-4">
             <ListaLecturas />
+          </TabsContent>
+
+          <TabsContent value="mapa" className="space-y-4">
+            <MapaLecturas lecturas={lecturas} />
           </TabsContent>
         </Tabs>
       </main>

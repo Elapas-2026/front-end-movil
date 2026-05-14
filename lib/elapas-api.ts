@@ -141,6 +141,30 @@ class ElapasAPI {
 
   // Autenticación
   async login(ci: string, password: string): Promise<LoginResponse> {
+    if (USE_MOCK_DATA) {
+      console.log('[v0] Using MOCK DATA for login:', ci)
+      await simulateDelay(700)
+      const user = MOCK_USUARIOS.find((u) => u.ci === ci)
+      if (!user || password !== 'password123') {
+        throw new Error('Credenciales inválidas')
+      }
+
+      const mockToken = `mock-token-${ci}`
+      this.setToken(mockToken)
+
+      return {
+        token: mockToken,
+        usuario: {
+          id: user.id,
+          nombre: user.nombre,
+          apellido: '',
+          ci: user.ci,
+          email: user.email,
+          categoria: 'TECNICO',
+        },
+      }
+    }
+
     console.log('[v0] Attempting login with API')
     const response = await this.request<any>('/auth/login', {
       method: 'POST',
@@ -176,6 +200,10 @@ class ElapasAPI {
   }
 
   async profile(): Promise<any> {
+    if (USE_MOCK_DATA) {
+      await simulateDelay(300)
+      return MOCK_AUTH_USER
+    }
     return this.request('/auth/profile')
   }
 
@@ -334,9 +362,6 @@ class ElapasAPI {
 
   // Medidores
   async buscarMedidorPorSerie(numeroSerie: string): Promise<any> {
-    if (!this.token) {
-      throw new Error('Debe iniciar sesión primero')
-    }
     if (USE_MOCK_DATA) {
       console.log('[v0] Using MOCK DATA for buscarMedidorPorSerie:', numeroSerie)
       await simulateDelay(800)
@@ -413,6 +438,12 @@ class ElapasAPI {
         }
       }
     }
+
+    // Validar token para API real
+    if (!this.token) {
+      throw new Error('Debe iniciar sesión primero')
+    }
+
     console.log('[v0] Fetching medidor by serie:', numeroSerie)
     return this.request(`/medidores/serie/${numeroSerie}`)
   }

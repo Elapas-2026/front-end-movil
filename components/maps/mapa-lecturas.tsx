@@ -25,6 +25,7 @@ interface MapaLecturasProps {
   lecturas: Lectura[]
   ubicacionActual?: { lat: number; lng: number }
   onSelectLocation?: (location: { lat: number; lng: number }) => void
+  onMarcarVerificado?: (lecturaId: number, verificado: boolean) => void
 }
 
 // Componente para manejar click en el mapa
@@ -43,10 +44,44 @@ function MapClickHandler({ onSelectLocation }: { onSelectLocation?: (location: {
   return null
 }
 
-export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: MapaLecturasProps) {
+// Componente de botón para marcar verificado
+function BotonMarcar({
+  lecturaId,
+  verificado,
+  onMarcar,
+  isLoading,
+}: {
+  lecturaId: string | number
+  verificado?: boolean
+  onMarcar: (lecturaId: string | number, estado: boolean) => void
+  isLoading: boolean
+}) {
+  return (
+    <button
+      onClick={() => onMarcar(lecturaId, !verificado)}
+      disabled={isLoading}
+      className={`mt-2 w-full px-3 py-2 rounded text-xs font-semibold text-white transition-all ${
+        verificado
+          ? 'bg-green-600 hover:bg-green-700'
+          : 'bg-blue-600 hover:bg-blue-700'
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
+    >
+      {isLoading ? '⏳ Procesando...' : verificado ? '✓ Verificado' : '👆 Marcar Verificado'}
+    </button>
+  )
+}
+
+export function MapaLecturas({
+  lecturas,
+  ubicacionActual,
+  onSelectLocation,
+  onMarcarVerificado,
+}: MapaLecturasProps) {
   const { medidoresLeidos, medidores } = useStore()
   const mapRef = useRef<any>(null)
   const [isClient, setIsClient] = useState(false)
+  const [marcados, setMarcados] = useState<Set<string | number>>(new Set())
+  const [cargando, setCargando] = useState<Set<string | number>>(new Set())
 
   // Centro del mapa - Sucre, Bolivia
   const defaultCenter = ubicacionActual || { lat: -19.0432, lng: -65.2592 }
@@ -74,27 +109,78 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
     return map
   }, [medidoresLeidos])
 
+  // Cargar estado de verificación inicial
+  useEffect(() => {
+    const verificados = new Set<number>()
+    lecturas.forEach((l) => {
+      if (l.verificado) {
+        verificados.add(l.id)
+      }
+    })
+    setMarcados(verificados)
+  }, [lecturas])
+
+  // Manejar marcar lectura como verificada
+  const handleMarcar = async (lecturaId: string | number, estado: boolean) => {
+    try {
+      setCargando((prev) => new Set([...prev, lecturaId]))
+
+      await medidorService.marcarLecturaVerificada(lecturaId, estado)
+
+      // Actualizar estado local
+      setMarcados((prev) => {
+        const nuevo = new Set(prev)
+        if (estado) {
+          nuevo.add(lecturaId)
+        } else {
+          nuevo.delete(lecturaId)
+        }
+        return nuevo
+      })
+
+      // Callback opcional
+      if (onMarcarVerificado) {
+        onMarcarVerificado(lecturaId, estado)
+      }
+
+      console.log('[v0] Lectura marcada:', lecturaId, estado)
+    } catch (error) {
+      console.error('[v0] Error al marcar lectura:', error)
+      alert('Error al marcar la lectura. Intenta de nuevo.')
+    } finally {
+      setCargando((prev) => {
+        const nuevo = new Set(prev)
+        nuevo.delete(lecturaId)
+        return nuevo
+      })
+    }
+  }
+
   const markers = useMemo(() => {
     // Crear marcadores de todas las mediciones registradas
     const lecturaMarkers = lecturas
       .filter((l) => l.gps)
       .map((lectura) => {
-        const medidorLeido = medidoresLeidosMap.get(lectura.idMedidor)
+        const medidorLeido = medidoresLeidosMap.get(lectura.medidorId)
         const categoria = medidorLeido?.categoria || 'DOMESTICA'
         const color = medidorService.getColorCategoria(categoria)
 
         return {
           id: lectura.id,
-          lat: lectura.gps!.lat,
-          lng: lectura.gps!.lng,
+          lat: lectura.latitud || lectura.gps?.lat || 0,
+          lng: lectura.longitud || lectura.gps?.lng || 0,
           estado: lectura.estado,
-          idMedidor: lectura.idMedidor,
-          direccion: lectura.direccion,
-          fecha: new Date(lectura.fecha).toLocaleDateString(),
-          nombrePersona: medidorLeido?.nombrePersona || 'Desconocido',
+          idMedidor: lectura.medidorId,
+          direccion: medidorLeido?.nombrePersona || lectura.direccion || 'Desconocido',
+          fecha: new Date(lectura.fechaLectura).toLocaleString(),
+          nombrePersona: medidorLeido?.nombrePersona || lectura.direccion || 'Desconocido',
           categoria,
           color: color.color,
           tipo: 'lectura' as const,
+          verificado: lectura.verificado || false,
+          lectura: lectura,
+          tecnicoNombre: lectura.tecnicoNombre,
+          tecnicoId: lectura.tecnicoId,
         }
       })
 
@@ -111,10 +197,10 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
     // Obtener información de usuarios de las lecturas
     const usuariosMapa = new Map()
     lecturas.forEach((l) => {
-      if (l.idMedidor && !usuariosMapa.has(l.idMedidor)) {
-        const medidorLeido = medidoresLeidosMap.get(l.idMedidor)
+      if (l.medidorId && !usuariosMapa.has(l.medidorId)) {
+        const medidorLeido = medidoresLeidosMap.get(l.medidorId)
         if (medidorLeido) {
-          usuariosMapa.set(l.idMedidor, medidorLeido)
+          usuariosMapa.set(l.medidorId, medidorLeido)
         }
       }
     })
@@ -137,6 +223,8 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
         categoria,
         color: color.color,
         tipo: 'medidor' as const,
+        verificado: false,
+        lectura: null,
       }
     })
 
@@ -154,27 +242,30 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
   }, [lecturas, medidores, medidoresLeidosMap])
 
   // Crear elementos dinámicos para los marcadores con colores
-  const createColorIcon = (color: string) => {
+  const createColorIcon = (color: string, verificado: boolean = false) => {
     if (typeof window === 'undefined') return undefined
     const L = require('leaflet')
+
     return L.divIcon({
       html: `<div style="
-        background-color: ${color};
-        border: 3px solid white;
+        background-color: ${verificado ? '#22c55e' : color};
+        border: 3px solid ${verificado ? '#22c55e' : 'white'};
         border-radius: 50%;
-        width: 32px;
-        height: 32px;
+        width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
         font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      ">✓</div>`,
+        font-size: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        transform: ${verificado ? 'scale(1.2)' : 'scale(1)'};
+      ">${verificado ? '✓' : '📍'}</div>`,
       className: 'marker-icon',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16],
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20],
     })
   }
 
@@ -235,7 +326,7 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
           <Marker
             key={marker.id}
             position={[marker.lat, marker.lng]}
-            icon={createColorIcon(marker.color)}
+            icon={createColorIcon(marker.color, marker.verificado)}
             eventHandlers={{
               click: () => {
                 if (onSelectLocation) {
@@ -245,7 +336,7 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
             }}
           >
             <Popup>
-              <div className="text-sm space-y-1 min-w-48">
+              <div className="text-sm space-y-2 min-w-56">
                 <p className="font-semibold text-foreground">{marker.nombrePersona}</p>
                 <p className="text-xs text-muted-foreground">{marker.direccion}</p>
 
@@ -257,27 +348,41 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
                   {CATEGORIA_COLORES[marker.categoria as keyof typeof CATEGORIA_COLORES]?.label || marker.categoria}
                 </div>
 
-                {marker.fecha && <p className="text-xs text-muted-foreground">{marker.fecha}</p>}
+                {marker.fecha && <p className="text-xs text-muted-foreground">📅 {marker.fecha}</p>}
+
+                {marker.tecnicoNombre || marker.tecnicoId ? (
+                  <p className="text-xs text-muted-foreground">👷 Técnico: {marker.tecnicoNombre || `ID ${marker.tecnicoId}`}</p>
+                ) : null}
 
                 {/* Indicador de estado */}
                 <div className="flex items-center gap-1">
-                  {marker.estado === 'sincronizada' ? (
+                  {marker.verificado ? (
                     <>
                       <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      <span className="text-xs text-green-700 font-semibold">Sincronizada</span>
+                      <span className="text-xs text-green-700 font-semibold">✓ Verificado</span>
                     </>
-                  ) : marker.estado === 'pendiente' ? (
+                  ) : marker.estado === 'CONFIRMADA' ? (
                     <>
-                      <span className="w-2 h-2 bg-yellow-500 rounded-full" />
-                      <span className="text-xs text-yellow-700 font-semibold">Pendiente</span>
+                      <span className="w-2 h-2 bg-blue-500 rounded-full" />
+                      <span className="text-xs text-blue-700 font-semibold">📝 Registrado</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full" />
-                      <span className="text-xs text-gray-700 font-semibold">Sin lectura</span>
+                      <span className="w-2 h-2 bg-yellow-500 rounded-full" />
+                      <span className="text-xs text-yellow-700 font-semibold">⏳ Sin lectura</span>
                     </>
                   )}
                 </div>
+
+                {/* Botón de marcar (solo si hay una lectura) */}
+                {marker.lectura && marker.tipo === 'lectura' && (
+                  <BotonMarcar
+                    lecturaId={marker.lectura.id}
+                    verificado={marker.verificado}
+                    onMarcar={handleMarcar}
+                    isLoading={cargando.has(marker.lectura.id)}
+                  />
+                )}
               </div>
             </Popup>
           </Marker>
@@ -285,18 +390,29 @@ export function MapaLecturas({ lecturas, ubicacionActual, onSelectLocation }: Ma
       </MapContainer>
 
       {/* Leyenda de colores */}
-      <div className="absolute top-4 right-4 bg-white border border-border rounded-lg p-3 shadow-lg z-40 max-w-40">
-        <p className="text-xs font-semibold text-foreground mb-2">Categorías</p>
-        <div className="space-y-1">
+      <div className="absolute top-4 right-4 bg-white border border-border rounded-lg p-3 shadow-lg z-40 max-w-48">
+        <p className="text-xs font-semibold text-foreground mb-2">📊 Categorías</p>
+        <div className="space-y-2">
           {Object.entries(CATEGORIA_COLORES).map(([key, { color, label }]) => (
             <div key={key} className="flex items-center gap-2 text-xs">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: color }}
-              />
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-muted-foreground">{label}</span>
             </div>
           ))}
+        </div>
+        
+        <hr className="my-2" />
+        
+        <p className="text-xs font-semibold text-foreground mb-2">📌 Estados</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex items-center gap-2">
+            <span>✓</span>
+            <span className="text-muted-foreground">Verificado</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>📍</span>
+            <span className="text-muted-foreground">Registrado</span>
+          </div>
         </div>
       </div>
     </div>

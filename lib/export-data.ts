@@ -44,7 +44,7 @@ export function exportAsCSV(lecturas: Lectura[], filename: string = 'lecturas.cs
     lectura.gps?.lng || '',
     lectura.foto ? 'SÍ' : 'NO',
     lectura.estado,
-    new Date(lectura.fecha).toLocaleString(),
+    new Date(lectura.fechaLectura).toLocaleString(),
   ])
 
   const csvContent = [
@@ -131,7 +131,7 @@ ID: ${lectura.id}
   Lectura Actual: ${lectura.lecturaActual}
   Diferencia: ${lectura.lecturaActual - lectura.lecturaAnterior}
   Estado: ${lectura.estado}
-  Fecha: ${new Date(lectura.fecha).toLocaleString()}
+  Fecha: ${new Date(lectura.fechaLectura).toLocaleString()}
   GPS: ${lectura.gps ? `${lectura.gps.lat}, ${lectura.gps.lng}` : 'No registrado'}
   Foto: ${lectura.foto ? 'Sí' : 'No'}
   Observaciones: ${lectura.observaciones || 'N/A'}

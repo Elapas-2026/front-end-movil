@@ -67,21 +67,26 @@ export interface Medidor {
 }
 
 export interface Lectura {
-  id: number
-  medidorId: number
-  tecnicoId: number
-  periodo: string
+  id: string | number
+  idMedidor: string
+  tecnicoId?: number
+  tecnicoNombre?: string
+  periodo?: string
   lecturaAnterior: number
   lecturaActual: number
-  consumoM3: number
+  consumoM3?: number
   fechaLectura: string
+  gps?: { lat: number; lng: number }
   latitud?: number
   longitud?: number
-  fotoEvidenciaUrl?: string
-  observacion?: string
-  estado: 'REGISTRADA' | 'CONFIRMADA' | 'ANULADA'
-  createdAt: string
-  updatedAt: string
+  foto?: string
+  observaciones?: string
+  direccion?: string
+  estado: 'REGISTRADA' | 'CONFIRMADA' | 'ANULADA' | 'pendiente' | 'sincronizada'
+  verificado?: boolean
+  fechaVerificacion?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface Tarifa {
@@ -196,6 +201,13 @@ export interface Auditoria {
   createdAt: string
 }
 
+export interface MedidorLeido {
+  idMedidor: string
+  nombrePersona: string
+  categoria: string
+  tiempoLectura: string
+}
+
 interface AppState {
   // Usuario
   usuario: Usuario | null
@@ -231,8 +243,15 @@ interface AppState {
   // Lecturas
   lecturas: Lectura[]
   agregarLectura: (lectura: Lectura) => void
-  actualizarLectura: (id: number, lectura: Partial<Lectura>) => void
-  eliminarLectura: (id: number) => void
+  actualizarLectura: (id: string | number, lectura: Partial<Lectura>) => void
+  eliminarLectura: (id: string | number) => void
+  marcarSincronizado: (id: string | number) => void
+
+  // Medidores Leídos (para rastreo de cuál técnico leyó qué)
+  medidoresLeidos: MedidorLeido[]
+  agregarMedidorLeido: (medidor: MedidorLeido) => void
+  setMedidoresLeidos: (medidores: MedidorLeido[]) => void
+  limpiarMedidoresLeidos: () => void
 
   // Tarifas
   tarifas: Tarifa[]
@@ -307,6 +326,20 @@ export const useStore = create<AppState>()(
         set((state) => ({
           lecturas: state.lecturas.filter((l) => l.id !== id),
         })),
+      marcarSincronizado: (id) =>
+        set((state) => ({
+          lecturas: state.lecturas.map((l) =>
+            l.id === id ? { ...l, estado: 'sincronizada' } : l
+          ),
+        })),
+
+      medidoresLeidos: [],
+      agregarMedidorLeido: (medidor) =>
+        set((state) => ({
+          medidoresLeidos: [...state.medidoresLeidos, medidor],
+        })),
+      setMedidoresLeidos: (medidores) => set({ medidoresLeidos: medidores }),
+      limpiarMedidoresLeidos: () => set({ medidoresLeidos: [] }),
 
       tarifas: [],
       setTarifas: (tarifas) => set({ tarifas }),
